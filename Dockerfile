@@ -33,8 +33,10 @@ RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
-# Install su-exec for safe user switching
-RUN apt-get update && apt-get install -y su-exec && rm -rf /var/lib/apt/lists/*
+# Install gosu for safe user switching (Debian's su-exec equivalent)
+RUN apt-get update && \
+    apt-get install -y gosu && \
+    rm -rf /var/lib/apt/lists/*
 
 # Fix ownership of /app
 RUN chown -R node:node /app
@@ -46,7 +48,7 @@ echo "Fixing /data permissions..."\n\
 mkdir -p /data/.openclaw /data/workspace\n\
 chown -R node:node /data 2>/dev/null || true\n\
 echo "Starting railway-wrapper as node user..."\n\
-exec su-exec node node dist/railway-wrapper.js\n\
+exec gosu node node dist/railway-wrapper.js\n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 8080
