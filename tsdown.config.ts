@@ -1,9 +1,7 @@
 import { defineConfig } from "tsdown";
-
 const env = {
   NODE_ENV: "production",
 };
-
 export default defineConfig([
   {
     entry: "src/index.ts",
@@ -27,6 +25,12 @@ export default defineConfig([
   },
   {
     entry: "src/extensionAPI.ts",
+    env,
+    fixedExtension: false,
+    platform: "node",
+  },
+  {
+    entry: "src/railway-wrapper.ts",  // ← ADD THIS CONFIG OBJECT
     env,
     fixedExtension: false,
     platform: "node",
