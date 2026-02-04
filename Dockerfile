@@ -24,25 +24,31 @@ COPY scripts ./scripts
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+
 RUN OPENCLAW_A2UI_SKIP_MISSING=1 pnpm build
-# Force pnpm for UI build (Bun may fail on ARM/Synology architectures)
+
+# Force pnpm for UI build
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
-# Allow non-root user to write temp files during runtime/tests.
+# Install su-exec for safe user switching
+RUN apt-get update && apt-get install -y su-exec && rm -rf /var/lib/apt/lists/*
+
+# Fix ownership of /app
 RUN chown -R node:node /app
 
-# Security hardening: Run as non-root user
-# The node:22-bookworm image includes a 'node' user (uid 1000)
-# This reduces the attack surface by preventing container escape via root privileges
-USER node
+# Create entrypoint script that fixes /data permissions and runs as node user
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "Fixing /data permissions..."\n\
+mkdir -p /data/.openclaw /data/workspace\n\
+chown -R node:node /data 2>/dev/null || true\n\
+echo "Starting railway-wrapper as node user..."\n\
+exec su-exec node node dist/railway-wrapper.js\n\
+' > /entrypoint.sh && chmod +x /entrypoint.sh
 
-# Start gateway server with default config.
-# Binds to loopback (127.0.0.1) by default for security.
-#
-# For container platforms requiring external health checks:
-#   1. Set OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD env var
-#   2. Override CMD: ["node","dist/index.js","gateway","--allow-unconfigured","--bind","lan"]
-CMD ["node", "dist/index.js", "gateway", "--allow-unconfigured"]
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.sh"]
